@@ -42,6 +42,7 @@ pyannote_pipeline = Pipeline.from_pretrained(
 )
 pyannote_model = pyannote_pipeline._segmentation.model
 
+
 pyannote_pipeline = time_latency(pyannote_pipeline)  # decorate to compute latency
 
 
@@ -508,10 +509,10 @@ if __name__ == "__main__":
     )
 
     # dataset = TenVadDataset(dataset_path=TEN_VAD_DATASET_PATH)
-    silero_runner = SileroRunner(dataset=dataset)
-    silero_runner.run_benchmark(output_file=RES_PATH)
-    ten_vad_runner = TenVadRunner(dataset=dataset)
-    ten_vad_runner.run_benchmark(output_file=RES_PATH)
+    # silero_runner = SileroRunner(dataset=dataset)
+    # silero_runner.run_benchmark(output_file=RES_PATH)
+    # ten_vad_runner = TenVadRunner(dataset=dataset)
+    # ten_vad_runner.run_benchmark(output_file=RES_PATH)
     pyannote_runner = PyannoteRunner(dataset=dataset)
     pyannote_runner.run_benchmark(output_file=RES_PATH)
     # tr_vad_runner = TRVADRunner(
