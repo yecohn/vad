@@ -515,6 +515,6 @@ if __name__ == "__main__":
     # pyannote_runner = PyannoteRunner(dataset=dataset)
     # pyannote_runner.run_benchmark(output_file=RES_PATH)
     tr_vad_runner = TRVADRunner(
-        dataset=dataset, checkpoint_path=TR_VAD_CHKP_PATH, quantize=False, device="cuda"
+        dataset=dataset, checkpoint_path=TR_VAD_CHKP_PATH, quantize=True, device="cpu"
     )
     tr_vad_runner.run_benchmark(output_file=RES_PATH)
