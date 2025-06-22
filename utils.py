@@ -1,7 +1,7 @@
 import re
 import time
 import numpy as np
-from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix
+from sklearn.metrics import precision_score, recall_score, f1_score
 import os
 import csv
 from typing import Union, Dict
@@ -9,8 +9,6 @@ from pathlib import Path
 from datetime import datetime
 from contextlib import contextmanager
 import librosa
-
-FILE_NAME = os.environ.get("FILE_NAME")
 
 
 # compute model size
@@ -42,20 +40,11 @@ def compute_metrics(y_true, y_pred, latency):
     min_len = min(len(y_true), len(y_pred))
     y_true = np.array(y_true[:min_len])
     y_pred = np.array(y_pred[:min_len])
-    with open(f"{FILE_NAME}_outputs_preds.txt", "a") as f1:
-        f1.write(f"{y_true}\n{y_pred}")
-        f1.write("\n\n")
-
     prec, recall, f1 = (
         precision_score(y_true, y_pred),
         recall_score(y_true, y_pred),
         f1_score(y_true, y_pred),
     )
-    tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel().tolist()
-    if os.path.exists("f{FILE_NAME}_confusion.csv"):
-        os.remove("f{FILE_NAME}_confusion.csv")
-    with open(f"{FILE_NAME}_confusion.csv", "a") as f:
-        f.write(f"{tn}, {fp}, {fn}, {tp}\n")
     res = {"prec": prec, "recall": recall, "f1": f1, "latency": latency}
     return res
 
@@ -107,7 +96,7 @@ def create_binary_mask(
     return mask
 
 
-def parse_wavs_labels(path_dir: str | Path, label_ext="scv", stop=None):
+def parse_wavs_labels(path_dir: str | Path, label_ext="scv"):
     wav_label_dic = {
         "wav": sorted(
             [
