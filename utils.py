@@ -42,7 +42,7 @@ def compute_metrics(y_true, y_pred, latency):
     min_len = min(len(y_true), len(y_pred))
     y_true = np.array(y_true[:min_len])
     y_pred = np.array(y_pred[:min_len])
-    with open("{FILE_NAME}_outputs_preds.txt", "a") as f1:
+    with open(f"{FILE_NAME}_outputs_preds.txt", "a") as f1:
         f1.write(f"{y_true}\n{y_pred}")
         f1.write("\n\n")
 

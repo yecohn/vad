@@ -503,18 +503,18 @@ class TRVADRunner(ModelRunner):
 
 
 if __name__ == "__main__":
-    # dataset = MSDWILDDataset(
-    #     dataset_path="/home/yehoshua/.cache/huggingface/datasets/MSDWILD"
-    # )
-
-    dataset = TenVadDataset(dataset_path=TEN_VAD_DATASET_PATH)
-    # silero_runner = SileroRunner(dataset=dataset)
-    # silero_runner.run_benchmark(output_file=RES_PATH)
-    # ten_vad_runner = TenVadRunner(dataset=dataset)
-    # ten_vad_runner.run_benchmark(output_file=RES_PATH)
-    # pyannote_runner = PyannoteRunner(dataset=dataset)
-    # pyannote_runner.run_benchmark(output_file=RES_PATH)
-    tr_vad_runner = TRVADRunner(
-        dataset=dataset, checkpoint_path=TR_VAD_CHKP_PATH, quantize=True, device="cpu"
+    dataset = MSDWILDDataset(
+        dataset_path="/home/yehoshua/.cache/huggingface/datasets/MSDWILD"
     )
-    tr_vad_runner.run_benchmark(output_file=RES_PATH)
+
+    # dataset = TenVadDataset(dataset_path=TEN_VAD_DATASET_PATH)
+    silero_runner = SileroRunner(dataset=dataset)
+    silero_runner.run_benchmark(output_file=RES_PATH)
+    ten_vad_runner = TenVadRunner(dataset=dataset)
+    ten_vad_runner.run_benchmark(output_file=RES_PATH)
+    pyannote_runner = PyannoteRunner(dataset=dataset)
+    pyannote_runner.run_benchmark(output_file=RES_PATH)
+    # tr_vad_runner = TRVADRunner(
+    #     dataset=dataset, checkpoint_path=TR_VAD_CHKP_PATH, quantize=True, device="cpu"
+    # )
+    # tr_vad_runner.run_benchmark(output_file=RES_PATH)
