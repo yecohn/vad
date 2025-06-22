@@ -21,12 +21,13 @@ import re
 from pathlib import Path
 from pyannote.audio import Pipeline
 
-(get_speech_timestamps, save_audio, read_audio, VADIterator, collect_chunks) = utils
+from silero_vad import  get_speech_timestamps,  read_audio, load_silero_vad
 
 get_speech_timestamps = time_latency(
     get_speech_timestamps
 )  # decorate to compute latency
-TEN_VAD_PATH = "./ten_vad/examples/"
+TEN_VAD_PATH = "./ten-vad/examples/"
+TEN_VAD_DATASET_PATH = "ten-vad/testset"
 TR_VAD_CHKP_PATH = (
     "/home/yehoshua/projects/silero-vad/tr_vad/checkpoint/weights_10_acc_97.09.pth"
 )
@@ -35,6 +36,7 @@ RES_PATH = "results.csv"
 BLOB_DURATION = 31.25e-3
 BLOB_SAMPLES = 500
 
+silero_model = load_silero_vad(onnx=False)
 pyannote_pipeline = Pipeline.from_pretrained(
     "pyannote/voice-activity-detection",
     use_auth_token=os.environ.get("HF_TOKEN"),
@@ -439,18 +441,18 @@ class TRVADRunner(ModelRunner):
 
 
 if __name__ == "__main__":
-    dataset = MSDWILDDataset(
-        dataset_path="/home/yehoshua/.cache/huggingface/datasets/MSDWILD"
-    )
+    # dataset = MSDWILDDataset(
+    #     dataset_path="/home/yehoshua/.cache/huggingface/datasets/MSDWILD"
+    # )
 
-    # dataset = TenVadDataset(dataset_path="ten_vad/testset")
-    # silero_runner = SileroRunner(dataset=dataset)
-    # silero_runner.run_benchmark(output_file=RES_PATH)
+    dataset = TenVadDataset(dataset_path=TEN_VAD_DATASET_PATH)
+    silero_runner = SileroRunner(dataset=dataset)
+    silero_runner.run_benchmark(output_file=RES_PATH)
     # ten_vad_runner = TenVadRunner(dataset=dataset)
     # ten_vad_runner.run_benchmark(output_file=RES_PATH)
     # pyannote_runner = PyannoteRunner(dataset=dataset)
     # pyannote_runner.run_benchmark(output_file=RES_PATH)
-    tr_vad_runner = TRVADRunner(
-        dataset=dataset, checkpoint_path=TR_VAD_CHKP_PATH, quantize=True
-    )
-    tr_vad_runner.run_benchmark(output_file=RES_PATH)
+    # tr_vad_runner = TRVADRunner(
+    #     dataset=dataset, checkpoint_path=TR_VAD_CHKP_PATH, quantize=True
+    # )
+    # tr_vad_runner.run_benchmark(output_file=RES_PATH)

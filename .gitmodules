@@ -1,3 +1,6 @@
 [submodule "git@github.com:yecohn/tr_vad.git"]
 	path = tr_vad
 	url = git@github.com:yecohn/tr_vad.git
+[submodule "ten-vad"]
+	path = ten-vad
+	url = git@github.com:yecohn/ten-vad.git
