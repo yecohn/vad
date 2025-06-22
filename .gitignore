@@ -1,7 +1,5 @@
 *tmp.csv
 *.wav
 *.ckpt
-pretrained_models/
 *.onnx
-*testset*
 __pycache__
