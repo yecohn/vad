@@ -8,6 +8,7 @@ from typing import Union, Dict
 from pathlib import Path
 from datetime import datetime
 from contextlib import contextmanager
+import librosa
 
 
 # compute model size
@@ -70,36 +71,29 @@ def dump_results(file_path, summary: list):
             writer.writerow(line)
 
 
-def create_binary_mask(timestamps: Union[Dict[str, float]], window_len=31.5e-3):
+def create_binary_mask(
+    timestamps: Union[Dict[str, float]], wav_file, sampling_rate, window_len=31.5e-3
+):
     """
     timestamps  should be an iterable of format [{"start": float, "end":float} ... ]
     """
-    timestamps_mask = []
-
-    # Determine the maximum end time across both labels and valid_preds
-    # This ensures the mask covers the full extent of relevant activity.
-    max_end_time = 0.0
-    max_end_time = max(max_end_time, max(d["end"] for d in timestamps))
-
-    # If there are no segments at all, return empty masks
-    if max_end_time == 0.0:
-        return [], []
-
-    cursor = 0.0
+    wav, _ = librosa.load(wav_file, sr=sampling_rate)
+    duration = len(wav) / sampling_rate
+    number_bins = int((duration // window_len) + 1)
+    mask = np.zeros(number_bins)
 
     # The `+ step * 0.5` add buffer for float innacuracy
-    while cursor < max_end_time + window_len * 0.5:  # Run slightly beyond max_end_time
-        # Check if the current cursor position falls within any ground truth segment
+    for i in range(len(mask)):
         is_speech = 0
-        for segment in timestamps:
+        for (
+            segment
+        ) in timestamps:  # we need this loop in the case we have multiple speakers
             # Check if cursor is within [start, end)
-            if segment["start"] <= cursor < segment["end"]:
+            if segment["start"] <= i * window_len < segment["end"]:
                 is_speech = 1
                 break  # Found an overlapping label, no need to check further for this cursor
-        timestamps_mask.append(is_speech)
-        cursor += window_len  # Move to the next time step
-
-    return timestamps_mask
+        mask[i] = is_speech
+    return mask
 
 
 def parse_wavs_labels(path_dir: str | Path, label_ext="scv"):

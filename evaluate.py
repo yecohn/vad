@@ -21,19 +21,18 @@ import re
 from pathlib import Path
 from pyannote.audio import Pipeline
 
-from silero_vad import  get_speech_timestamps,  read_audio, load_silero_vad
+from silero_vad import get_speech_timestamps, read_audio, load_silero_vad
 
 get_speech_timestamps = time_latency(
     get_speech_timestamps
 )  # decorate to compute latency
 TEN_VAD_PATH = "./ten-vad/examples/"
 TEN_VAD_DATASET_PATH = "ten-vad/testset"
-TR_VAD_CHKP_PATH = (
-    "/home/yehoshua/projects/silero-vad/tr_vad/checkpoint/weights_10_acc_97.09.pth"
-)
+TR_VAD_CHKP_PATH = "tr_vad/checkpoint/weights_10_acc_97.09.pth"
 RES_PATH = "results.csv"
 
 BLOB_DURATION = 31.25e-3
+SAMPLING_RATE = 16000
 BLOB_SAMPLES = 500
 
 silero_model = load_silero_vad(onnx=False)
@@ -87,8 +86,18 @@ class RTTMProcessor(BaseOutputProcessor):
 
 
 class VADDataset(ABC):
-    def __init__(self, window_len=BLOB_DURATION):
-        self.labels = self.process_labels(window_len=window_len)
+    def __init__(
+        self,
+        window_len=BLOB_DURATION,
+        sampling_rate=SAMPLING_RATE,
+        window_sample=BLOB_SAMPLES,
+    ):
+        self.labels = self.process_labels(
+            window_len=window_len, sampling_rate=sampling_rate
+        )
+        self.sampling_rate = sampling_rate
+        self.window_len = window_len
+        self.window_sample = window_sample
 
     def load_dataset(self, dir_path: str, **kwargs):
         self.dataset = parse_wavs_labels(dir_path, **kwargs)
@@ -109,14 +118,17 @@ class VADDataset(ABC):
 
 class TenVadDataset(VADDataset):
 
-    def __init__(self, dataset_path, window_len=BLOB_DURATION):
+    def __init__(self, dataset_path, window_len=BLOB_DURATION, sampling_rate=16000):
         self.dataset_path = dataset_path
         self.files_dic = parse_wavs_labels(dataset_path)
+        self.sampling_rate = sampling_rate
         super().__init__(window_len=window_len)
 
-    def process_labels(self, window_len=BLOB_DURATION):
+    def process_labels(self, sampling_rate, window_len):
         labels = []
-        for label_path in self.files_dic["labels"]:
+        for label_path, wav_path in zip(
+            self.files_dic["labels"], self.files_dic["wav"]
+        ):
             with open(label_path, "r") as f:
                 label = f.read().split(",")[1:]
                 label = [
@@ -131,7 +143,12 @@ class TenVadDataset(VADDataset):
                     for lab in label
                 ]
                 filtered_label = [dic for dic in filtered_label if dic != dict()]
-                label = create_binary_mask(filtered_label, window_len=window_len)
+                label = create_binary_mask(
+                    filtered_label,
+                    wav_path,
+                    sampling_rate=sampling_rate,
+                    window_len=window_len,
+                )
                 labels.append(label)
         return labels
 
@@ -150,12 +167,16 @@ class TenVadDataset(VADDataset):
 
 class MSDWILDDataset(VADDataset):
     def __init__(
-        self, dataset_path, dataset_partition="many.val.rttm", window_len=BLOB_DURATION
+        self,
+        dataset_path,
+        dataset_partition="many.val.rttm",
+        window_len=BLOB_DURATION,
+        sampling_rate=SAMPLING_RATE,
     ):
         self.dataset_path = dataset_path
         self.dataset_partition = dataset_partition
         self.files_dic = self.create_mapping()
-        super().__init__(window_len=window_len)
+        super().__init__(window_len=window_len, sampling_rate=sampling_rate)
 
     def create_mapping(self):
         rttm_path = os.path.join(self.dataset_path, "rttms", self.dataset_partition)
@@ -175,10 +196,12 @@ class MSDWILDDataset(VADDataset):
         files_dic = {"wav": wavs, "labels": labels}
         return files_dic
 
-    def process_labels(self, window_len=BLOB_DURATION):
+    def process_labels(self, sampling_rate, window_len):
         labels = []
-        for label in self.files_dic["labels"]:
-            label = create_binary_mask(label, window_len=window_len)
+        for label, wav_file in zip(self.files_dic["labels"], self.files_dic["wav"]):
+            label = create_binary_mask(
+                label, wav_file, sampling_rate=sampling_rate, window_len=window_len
+            )
             labels.append(label)
         return labels
 
@@ -200,6 +223,10 @@ class ModelRunner(ABC):
         self.preds = list()
         self.labels = self.dataset.labels
         self.metadata = dict()
+        self.sampling_rate = dataset.sampling_rate
+        self.window_sample = dataset.window_sample
+        self.window_len = dataset.window_len
+
         if self._model is None:
             raise ValueError(
                 "in you class definition you should define a static attribute _model"
@@ -260,12 +287,12 @@ class SileroRunner(ModelRunner):
         wav = read_audio(wav_path)
         return wav
 
-    def forward(self, wav, sampling_rate=16000, return_seconds=True):
+    def forward(self, wav, return_seconds=True):
         metadata = {}
         speech_timestamps_and_latency = get_speech_timestamps(
             wav,
             silero_model,
-            sampling_rate=sampling_rate,
+            sampling_rate=self.sampling_rate,
             return_seconds=return_seconds,
         )
         if isinstance(speech_timestamps_and_latency, tuple):
@@ -281,32 +308,39 @@ class SileroRunner(ModelRunner):
         latencies = []
 
         for sample in tqdm(self.dataset):
-            wav = read_audio(sample["wav"])
+            wav_file = sample["wav"]
+            wav = read_audio(wav_file)
             speech_timestamps, metadata = self.forward(wav)
             if latency := metadata.get("latency", None):
                 latencies.append(latency)
-            pred = self.binarize_outputs(speech_timestamps)
+            pred = self.binarize_outputs(
+                speech_timestamps,
+                wav_file=wav_file,
+                sampling_rate=self.sampling_rate,
+                window_len=self.window_len,
+            )
             preds.append(pred)
         self.preds = preds
         self.metadata["latencies"] = latencies
         return preds, latencies
 
-    def binarize_outputs(self, timestamps, window_len=BLOB_DURATION):
-        return create_binary_mask(timestamps, window_len=window_len)
+    def binarize_outputs(self, timestamps, wav_file, window_len, sampling_rate):
+        return create_binary_mask(
+            timestamps, wav_file, sampling_rate=sampling_rate, window_len=window_len
+        )
 
     def __repr__(self):
         return "Silero-V5"
 
 
 class TenVadRunner(ModelRunner):
-    _model = (0.0350, None)
+    _model = (0.350, None)
 
-    def __init__(self, dataset: VADDataset):
+    def __init__(self, dataset: VADDataset, path_of_module=TEN_VAD_PATH):
         super().__init__(dataset)
+        self.path_of_module = path_of_module
 
-    def forward(
-        self, wav_path, path_of_module=TEN_VAD_PATH, window_sample=BLOB_SAMPLES
-    ):
+    def forward(self, wav_path, path_of_module, window_sample):
         """
         check the script https://github.com/yecohn/ten-vad/blob/main/examples/test.py,
         you should clone the repo and run the script from the repo (change dir in subprocess)
@@ -316,13 +350,23 @@ class TenVadRunner(ModelRunner):
         path = Path(wav_path)
         full_path = str(path.absolute())
         result = run(
-            [sys.executable, "test.py", full_path, str(window_sample)],
+            [
+                sys.executable,
+                "test.py",
+                full_path,
+                str(self.sampling_rate),
+                str(window_sample),
+            ],
             cwd=path_of_module,  # Explicitly tell subprocess where to run from
             check=True,
             capture_output=True,  # Capture output for better debugging
             text=True,  # Decode output as text
         )
-        print(result.stdout)
+        res = result.stdout
+        res_list = res.split("\n")[:-1]
+        timestamps, latency = res_list[:-1], float(res_list[-1].split(":")[1])
+        preds = [int(line.split(",")[1]) for line in timestamps]
+        return preds, latency
 
     def binarize_outputs(self, output_file):
         df = pd.read_csv(output_file)
@@ -330,24 +374,29 @@ class TenVadRunner(ModelRunner):
         latency = np.sum(df.iloc[:, 2].tolist())
         return preds, latency
 
-    def load_preds(self, preds_dir):
-        preds_files = sorted(
-            glob.glob(os.path.join(preds_dir, "*_ten_vad_pred.csv")),
-            key=lambda x: int(re.search("\d+", x).group(0)),
-        )
-        preds, latencies = zip(
-            *(self.binarize_outputs(pred_file) for pred_file in preds_files)
-        )
-        self.preds = preds
-        self.metadata["latencies"] = latencies
-        return preds, latencies
+    # def load_preds(self, preds_dir):
+    #     preds_files = sorted(
+    #         glob.glob(os.path.join(preds_dir, "*_ten_vad_pred.csv")),
+    #         key=lambda x: int(re.search("\d+", x).group(0)),
+    #     )
+    #     preds, latencies = zip(
+    #         *(self.binarize_outputs(pred_file) for pred_file in preds_files)
+    #     )
+    #     self.preds = preds
+    #     self.metadata["latencies"] = latencies
+    #     return preds, latencies
 
     def run_inference(self):
-
+        latencies, preds = [], []
         for sample in tqdm(self.dataset):
             wav_file = sample["wav"]
-            self.forward(wav_file)
-        preds, latencies = self.load_preds(Path(wav_file).parent)
+            pred, latency = self.forward(
+                wav_file,
+                path_of_module=self.path_of_module,
+                window_sample=self.window_sample,
+            )
+            preds.append(pred)
+            latencies.append(latency)
         return preds, latencies
 
     def __repr__(self):
@@ -372,21 +421,30 @@ class PyannoteRunner(ModelRunner):
         os.remove(tmp_path)
         return timestamps, latency
 
-    def run_inference(self, window_len=BLOB_DURATION):
+    def run_inference(self):
         preds = []
         latencies = []
         for sample in tqdm(self.dataset):
             wav_file = sample["wav"]
             timestamps, latency = self.forward(wav_file)
-            pred = self.binarize_outputs(timestamps, window_len=window_len)
+            pred = self.binarize_outputs(
+                timestamps,
+                wav_file,
+                sampling_rate=self.sampling_rate,
+                window_len=self.window_len,
+            )
             preds.append(pred)
             latencies.append(latency)
         self.preds = preds
         self.metadata["latencies"] = latencies
         return preds, latencies
 
-    def binarize_outputs(self, timestamps: torch.Tensor, window_len=BLOB_DURATION):
-        return create_binary_mask(timestamps, window_len=window_len)
+    def binarize_outputs(
+        self, timestamps: torch.Tensor, wav_file, sampling_rate, window_len
+    ):
+        return create_binary_mask(
+            timestamps, wav_file, sampling_rate=sampling_rate, window_len=window_len
+        )
 
     def __repr__(self):
         return "Pyannote"
@@ -395,14 +453,18 @@ class PyannoteRunner(ModelRunner):
 class TRVADRunner(ModelRunner):
     _model = None
 
-    def __init__(self, dataset: VADDataset, checkpoint_path, quantize=False):
-        self.inferer = VADInferrer(checkpoint_path=checkpoint_path, quantize=quantize)
+    def __init__(
+        self, dataset: VADDataset, checkpoint_path, quantize=False, device="cpu"
+    ):
+        self.inferer = VADInferrer(
+            checkpoint_path=checkpoint_path, quantize=quantize, device=device
+        )
         self.checkpoint_path = checkpoint_path
         self._model = self.inferer.model
         self.quantize = quantize
         super().__init__(dataset)
 
-    def forward(self, wav_path, window_sample=BLOB_SAMPLES):
+    def forward(self, wav_path, window_sample):
 
         wav_path = str(Path(wav_path).absolute())
         pred, latency = self.inferer.infer_vad(
@@ -416,12 +478,12 @@ class TRVADRunner(ModelRunner):
         pred = [int(elem) for elem in df.iloc[0, 2:]]
         return pred, latency
 
-    def run_inference(self, window_sample=BLOB_SAMPLES):
+    def run_inference(self):
         preds = []
         latencies = []
         for sample in tqdm(self.dataset):
             wav_file = sample["wav"]
-            pred, latency = self.forward(wav_file, window_sample=window_sample)
+            pred, latency = self.forward(wav_file, window_sample=self.window_sample)
             if pred == 0:
                 continue
             preds.append(pred)
@@ -446,13 +508,13 @@ if __name__ == "__main__":
     # )
 
     dataset = TenVadDataset(dataset_path=TEN_VAD_DATASET_PATH)
-    silero_runner = SileroRunner(dataset=dataset)
-    silero_runner.run_benchmark(output_file=RES_PATH)
+    # silero_runner = SileroRunner(dataset=dataset)
+    # silero_runner.run_benchmark(output_file=RES_PATH)
     # ten_vad_runner = TenVadRunner(dataset=dataset)
     # ten_vad_runner.run_benchmark(output_file=RES_PATH)
     # pyannote_runner = PyannoteRunner(dataset=dataset)
     # pyannote_runner.run_benchmark(output_file=RES_PATH)
-    # tr_vad_runner = TRVADRunner(
-    #     dataset=dataset, checkpoint_path=TR_VAD_CHKP_PATH, quantize=True
-    # )
-    # tr_vad_runner.run_benchmark(output_file=RES_PATH)
+    tr_vad_runner = TRVADRunner(
+        dataset=dataset, checkpoint_path=TR_VAD_CHKP_PATH, quantize=False, device="cuda"
+    )
+    tr_vad_runner.run_benchmark(output_file=RES_PATH)
