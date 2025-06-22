@@ -1,0 +1,120 @@
+_model: RecursiveScriptModule(
+  original_name=VADRNNJIT
+  (stft): RecursiveScriptModule(
+    original_name=STFT
+    (padding): RecursiveScriptModule(original_name=ReflectionPad1d)
+  )
+  (encoder): RecursiveScriptModule(
+    original_name=Sequential
+    (0): RecursiveScriptModule(
+      original_name=SileroVadBlock
+      (se): RecursiveScriptModule(original_name=Identity)
+      (activation): RecursiveScriptModule(original_name=ReLU)
+      (reparam_conv): RecursiveScriptModule(original_name=Conv1d)
+    )
+    (1): RecursiveScriptModule(
+      original_name=SileroVadBlock
+      (se): RecursiveScriptModule(original_name=Identity)
+      (activation): RecursiveScriptModule(original_name=ReLU)
+      (reparam_conv): RecursiveScriptModule(original_name=Conv1d)
+    )
+    (2): RecursiveScriptModule(
+      original_name=SileroVadBlock
+      (se): RecursiveScriptModule(original_name=Identity)
+      (activation): RecursiveScriptModule(original_name=ReLU)
+      (reparam_conv): RecursiveScriptModule(original_name=Conv1d)
+    )
+    (3): RecursiveScriptModule(
+      original_name=SileroVadBlock
+      (se): RecursiveScriptModule(original_name=Identity)
+      (activation): RecursiveScriptModule(original_name=ReLU)
+      (reparam_conv): RecursiveScriptModule(original_name=Conv1d)
+    )
+  )
+  (decoder): RecursiveScriptModule(
+    original_name=VADDecoderRNNJIT
+    (rnn): RecursiveScriptModule(original_name=LSTMCell)
+    (decoder): RecursiveScriptModule(
+      original_name=Sequential
+      (0): RecursiveScriptModule(original_name=Dropout)
+      (1): RecursiveScriptModule(original_name=ReLU)
+      (2): RecursiveScriptModule(original_name=Conv1d)
+      (3): RecursiveScriptModule(original_name=Sigmoid)
+    )
+  )
+)
+_model_8k: RecursiveScriptModule(
+  original_name=VADRNNJIT
+  (stft): RecursiveScriptModule(
+    original_name=STFT
+    (padding): RecursiveScriptModule(original_name=ReflectionPad1d)
+  )
+  (encoder): RecursiveScriptModule(
+    original_name=Sequential
+    (0): RecursiveScriptModule(
+      original_name=SileroVadBlock
+      (se): RecursiveScriptModule(original_name=Identity)
+      (activation): RecursiveScriptModule(original_name=ReLU)
+      (reparam_conv): RecursiveScriptModule(original_name=Conv1d)
+    )
+    (1): RecursiveScriptModule(
+      original_name=SileroVadBlock
+      (se): RecursiveScriptModule(original_name=Identity)
+      (activation): RecursiveScriptModule(original_name=ReLU)
+      (reparam_conv): RecursiveScriptModule(original_name=Conv1d)
+    )
+    (2): RecursiveScriptModule(
+      original_name=SileroVadBlock
+      (se): RecursiveScriptModule(original_name=Identity)
+      (activation): RecursiveScriptModule(original_name=ReLU)
+      (reparam_conv): RecursiveScriptModule(original_name=Conv1d)
+    )
+    (3): RecursiveScriptModule(
+      original_name=SileroVadBlock
+      (se): RecursiveScriptModule(original_name=Identity)
+      (activation): RecursiveScriptModule(original_name=ReLU)
+      (reparam_conv): RecursiveScriptModule(original_name=Conv1d)
+    )
+  )
+  (decoder): RecursiveScriptModule(
+    original_name=VADDecoderRNNJIT
+    (rnn): RecursiveScriptModule(original_name=LSTMCell)
+    (decoder): RecursiveScriptModule(
+      original_name=Sequential
+      (0): RecursiveScriptModule(original_name=Dropout)
+      (1): RecursiveScriptModule(original_name=ReLU)
+      (2): RecursiveScriptModule(original_name=Conv1d)
+      (3): RecursiveScriptModule(original_name=Sigmoid)
+    )
+  )
+)
+
+
+_model.encoder.0.reparam_conv.weight torch.Size([128, 129, 3])
+_model.encoder.0.reparam_conv.bias torch.Size([128])
+_model.encoder.1.reparam_conv.weight torch.Size([64, 128, 3])
+_model.encoder.1.reparam_conv.bias torch.Size([64])
+_model.encoder.2.reparam_conv.weight torch.Size([64, 64, 3])
+_model.encoder.2.reparam_conv.bias torch.Size([64])
+_model.encoder.3.reparam_conv.weight torch.Size([128, 64, 3])
+_model.encoder.3.reparam_conv.bias torch.Size([128])
+_model.decoder.rnn.weight_ih torch.Size([512, 128])
+_model.decoder.rnn.weight_hh torch.Size([512, 128])
+_model.decoder.rnn.bias_ih torch.Size([512])
+_model.decoder.rnn.bias_hh torch.Size([512])
+_model.decoder.decoder.2.weight torch.Size([1, 128, 1])
+_model.decoder.decoder.2.bias torch.Size([1])
+_model_8k.encoder.0.reparam_conv.weight torch.Size([128, 65, 3])
+_model_8k.encoder.0.reparam_conv.bias torch.Size([128])
+_model_8k.encoder.1.reparam_conv.weight torch.Size([64, 128, 3])
+_model_8k.encoder.1.reparam_conv.bias torch.Size([64])
+_model_8k.encoder.2.reparam_conv.weight torch.Size([64, 64, 3])
+_model_8k.encoder.2.reparam_conv.bias torch.Size([64])
+_model_8k.encoder.3.reparam_conv.weight torch.Size([128, 64, 3])
+_model_8k.encoder.3.reparam_conv.bias torch.Size([128])
+_model_8k.decoder.rnn.weight_ih torch.Size([512, 128])
+_model_8k.decoder.rnn.weight_hh torch.Size([512, 128])
+_model_8k.decoder.rnn.bias_ih torch.Size([512])
+_model_8k.decoder.rnn.bias_hh torch.Size([512])
+_model_8k.decoder.decoder.2.weight torch.Size([1, 128, 1])
+_model_8k.decoder.decoder.2.bias torch.Size([1])
