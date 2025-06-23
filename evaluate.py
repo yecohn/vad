@@ -29,7 +29,7 @@ get_speech_timestamps = time_latency(
 TEN_VAD_PATH = "./ten-vad/examples/"
 TEN_VAD_DATASET_PATH = "ten-vad/testset"
 TR_VAD_CHKP_PATH = "tr_vad/checkpoint/weights_10_acc_97.09.pth"
-RES_PATH = "results.csv"
+RES_PATH = "results/results.csv"
 
 BLOB_DURATION = 31.25e-3
 SAMPLING_RATE = 16000
